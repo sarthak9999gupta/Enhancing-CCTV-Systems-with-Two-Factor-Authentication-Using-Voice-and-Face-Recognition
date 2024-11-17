@@ -1,0 +1,79 @@
+## Instructions for Setting Up and Running the CCTV System with Two-Factor Authentication
+
+### Prerequisites
+
+Before running the project, ensure that you have the following installed:
+
+1. **Python 3.x**  
+2. **Google Colab (for video processing)**  
+3. **An internet connection** to download necessary libraries and access the Mailgun API.
+
+### Setup
+
+1. **Clone the Repository**  
+   Clone this repository to your local machine:
+   ```bash
+   git clone https://github.com/your-username/repository-name.git
+   ```
+
+2. **Create a Virtual Environment (Optional but Recommended)**  
+   To avoid conflicts with existing Python packages, it's recommended to set up a virtual environment:
+   ```bash
+   python -m venv env
+   source env/bin/activate   # On Windows use `env\Scripts\activate`
+   ```
+
+3. **Install Dependencies**  
+   Install the required dependencies listed in the `requirements.txt` file:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Setup Mailgun API**  
+   - Sign up at [Mailgun](https://www.mailgun.com/) and get your API key and domain.
+   - Replace `MAILGUN_API_KEY` and `MAILGUN_DOMAIN` in the code with your actual Mailgun credentials.
+
+5. **Prepare Known Faces**  
+   - Add images of known family members for face recognition in the `load_known_faces` function.
+   - Place these images in the same directory as the Python script or provide the full path.
+
+6. **Upload Audio File for Authentication**  
+   - Upload your test audio file in `.wav` format.
+   - Change the path of the `test_audio_file` variable to point to your uploaded audio file.
+
+### Running the Code
+
+1. **Start the Program**  
+   Run the script that contains the face and blink detection as well as the two-factor authentication. If you're using Google Colab, upload the video file there, and ensure paths are set correctly.
+   
+2. **Face Detection**  
+   - The system will detect known faces from the video stream or uploaded video.
+   - If an unknown face is detected, the system will send an email notification with an image of the intruder.
+   
+3. **Blink Detection**  
+   - The system will detect eye blinks using the Eye Aspect Ratio (EAR) method.
+   - If a blink is detected, access will be granted, provided that the voice authentication also passes.
+
+4. **Voice Authentication**  
+   - The system will listen for an audio file (WAV format) with the correct access password.
+   - If the recognized speech matches the password, access will be granted; otherwise, it will be denied.
+
+5. **Captured Frames**  
+   - After detection, frames will be captured and saved, and you can view or download them from the system.
+
+### Testing the System
+
+- To test the system, run the script and ensure that the facial recognition and audio file verification work as expected. Adjust parameters like the eye aspect ratio threshold and password as needed.
+
+---
+
+### Notes
+
+- Make sure that all required files (such as the shape predictor for facial landmarks and the audio file for authentication) are in place before running the program.
+- This code assumes you’re using a `.mp4` video file and a `.wav` audio file.
+  
+Feel free to modify the system to fit your specific needs, including adding more known faces or changing the authentication method.
+
+--- 
+
+These instructions will help users set up and run the project smoothly.

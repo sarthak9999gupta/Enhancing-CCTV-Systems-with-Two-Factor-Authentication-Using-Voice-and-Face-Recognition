@@ -1,0 +1,253 @@
+### 1. **Project Directory Structure**
+Here's how you should organize your project directory:
+
+```
+CCTV_Security_Project/
+├── face_recognition.py
+├── blink_detection.py
+├── audio_recognition.py
+├── requirements.txt
+├── README.md
+├── LICENSE
+├── shape_predictor_68_face_landmarks.dat  (You will need to download this model)
+├── known_faces/
+│   └── arsheen_photo.jpg  (Add known family member images here)
+├── test_video.mp4  (Optional, add your test video here)
+└── images/           (For saved images, such as unknown visitors)
+```
+
+### 2. **face_recognition.py**
+This file will handle face recognition and sending emails when an unknown visitor is detected.
+
+```python
+import cv2
+import face_recognition
+import requests
+from imutils import paths
+import time
+
+# Mailgun API setup
+MAILGUN_API_KEY = 'your-mailgun-api-key'
+MAILGUN_DOMAIN = 'your-mailgun-domain'
+OWNER_EMAIL = 'owner-email@example.com'
+
+# Email sending function with image attachment
+def send_email_with_attachment(image_path, subject="Unknown Visitor Detected"):
+    url = f"https://api.mailgun.net/v3/{MAILGUN_DOMAIN}/messages"
+    data = {
+        "from": "CCTV System <noreply@yourdomain.com>",
+        "to": OWNER_EMAIL,
+        "subject": subject,
+        "text": "An unknown visitor was detected by the CCTV system."
+    }
+    with open(image_path, "rb") as img_file:
+        files = {"attachment": img_file}
+        response = requests.post(url, auth=("api", MAILGUN_API_KEY), data=data, files=files)
+        if response.status_code == 200:
+            print("Email sent successfully with attachment!")
+        else:
+            print(f"Error sending email: {response.status_code} - {response.text}")
+
+# Load known faces
+known_face_encodings = []
+known_face_names = []
+
+def load_known_faces(path, name):
+    image = face_recognition.load_image_file(path)
+    encoding = face_recognition.face_encodings(image)[0]
+    known_face_encodings.append(encoding)
+    known_face_names.append(name)
+
+# Example known faces
+load_known_faces("known_faces/arsheen_photo.jpg", "Family Member 1")
+
+# Start video capture
+video_capture = cv2.VideoCapture('test_video.mp4')
+while True:
+    ret, frame = video_capture.read()
+    if not ret:
+        break
+
+    # Recognize faces
+    rgb_frame = frame[:, :, ::-1]
+    face_locations = face_recognition.face_locations(rgb_frame)
+    face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+
+    for face_encoding in face_encodings:
+        matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+        name = "Unknown"
+        if True in matches:
+            name = known_face_names[matches.index(True)]
+        
+        if name == "Unknown":
+            cv2.imwrite("images/unknown_visitor.jpg", frame)
+            send_email_with_attachment("images/unknown_visitor.jpg")
+            print("Unknown visitor detected!")
+            break
+
+video_capture.release()
+```
+
+### 3. **blink_detection.py**
+This file handles the eye-blink detection functionality.
+
+```python
+import cv2
+import dlib
+from scipy.spatial import distance
+
+# Load dlib face detector and landmark predictor
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+
+# Function to calculate eye aspect ratio (EAR)
+def calculate_eye_aspect_ratio(eye_points):
+    A = distance.euclidean(eye_points[1], eye_points[5])
+    B = distance.euclidean(eye_points[2], eye_points[4])
+    C = distance.euclidean(eye_points[0], eye_points[3])
+    ear = (A + B) / (2.0 * C)
+    return ear
+
+# Initialize video capture
+video_capture = cv2.VideoCapture('test_video.mp4')
+
+# Eye blink detection parameters
+eye_aspect_ratio_threshold = 0.2
+frame_counter = 0
+eye_blink_detected = False
+
+while True:
+    ret, frame = video_capture.read()
+    if not ret:
+        break
+
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = detector(gray)
+    
+    for face in faces:
+        shape = predictor(gray, face)
+        left_eye = [shape.part(i) for i in range(36, 42)]
+        right_eye = [shape.part(i) for i in range(42, 48)]
+
+        left_ear = calculate_eye_aspect_ratio(left_eye)
+        right_ear = calculate_eye_aspect_ratio(right_eye)
+        ear = (left_ear + right_ear) / 2.0
+
+        if ear < eye_aspect_ratio_threshold:
+            frame_counter += 1
+        else:
+            if frame_counter >= 3:
+                eye_blink_detected = True
+            frame_counter = 0
+
+        if eye_blink_detected:
+            print("Blink Detected!")
+            cv2.putText(frame, "Blink Detected", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+    if eye_blink_detected:
+        break
+
+video_capture.release()
+```
+
+### 4. **audio_recognition.py**
+This file handles speech recognition for verifying access via an audio password.
+
+```python
+import speech_recognition as sr
+
+# Set password
+PASSWORD = "open"
+
+# Convert audio to text
+def audio_to_text(audio_file):
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(audio_file) as source:
+        audio_data = recognizer.record(source)
+    try:
+        text = recognizer.recognize_google(audio_data)
+        return text.lower()
+    except sr.UnknownValueError:
+        print("Could not understand audio")
+        return None
+    except sr.RequestError as e:
+        print(f"Error with speech recognition service: {e}")
+        return None
+
+# Function to check access
+def check_access(audio_file):
+    recognized_text = audio_to_text(audio_file)
+    if recognized_text is not None:
+        if recognized_text == PASSWORD:
+            print("Access Granted!")
+        else:
+            print("Access Denied!")
+    else:
+        print("No valid speech recognized.")
+```
+
+### 5. **requirements.txt**
+This file lists all the dependencies required for the project. 
+
+```
+opencv-python
+dlib==19.18.0
+face-recognition
+imutils
+scipy
+requests
+SpeechRecognition
+pydub
+```
+
+### 6. **README.md**
+A markdown file that explains the purpose of the project, its features, and how to use it.
+
+```markdown
+# CCTV Security System with Face and Voice Recognition
+
+This project enhances the security of a CCTV system by integrating face recognition, eye-blink detection, and voice recognition for access control.
+
+## Features
+- Face recognition to identify known family members
+- Eye-blink detection to verify user identity
+- Voice recognition for secure access control
+- Sends email notifications with images of unknown visitors
+
+## Requirements
+- Python 3.x
+- OpenCV
+- dlib
+- face-recognition
+- SpeechRecognition
+- pydub
+- scipy
+- requests
+
+## Setup
+1. Clone the repository:
+   ```
+   git clone https://github.com/yourusername/CCTV_Security_Project.git
+   ```
+
+2. Install the dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+3. Run the scripts:
+   - Run the face and blink detection using:
+     ```bash
+     python face_recognition.py
+     ```
+   - Run the voice recognition with:
+     ```bash
+     python audio_recognition.py
+     ```
+
+## License
+This project is licensed under the MIT License.
+```
+
+### 7. **Shape Predictor File**
+You need the `shape_predictor_68_face_landmarks.dat` file for facial landmark detection. You can download it from [here](http://dlib.net/files/shape_predictor_68_face_landmarks)

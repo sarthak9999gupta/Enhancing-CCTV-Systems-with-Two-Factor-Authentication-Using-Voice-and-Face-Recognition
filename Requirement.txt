@@ -12,3 +12,6 @@ pydub==0.25.1
 ```
 
 This file will ensure that all the required libraries and specific versions for your project are installed when running `pip install -r requirements.txt`.
+
+**Shape Predictor File**
+You need the `shape_predictor_68_face_landmarks.dat` file for facial landmark detection. You can download it from [here](http://dlib.net/files/shape_predictor_68_face_landmarks)
